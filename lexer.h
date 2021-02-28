@@ -93,9 +93,7 @@ Token Lexer::next_token()
     line++;
     column = 0;
   }
-  else{
-    read();
-    }
+  else read();
   }
 
   // Check for EOF
