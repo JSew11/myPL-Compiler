@@ -63,27 +63,28 @@ void Printer::visit(Program& node){
 }
 
 void Printer::visit(FunDecl& node){
-  std::cout << "fun " << node.return_type.lexeme() << " " <<
+  std::cout << get_indent() << "fun " << node.return_type.lexeme() << " " <<
                node.id.lexeme() << "(";
-  inc_indent();
   for(FunDecl::FunParam param: node.params)
     std::cout << param.id.lexeme() << ": " << param.type.lexeme() <<
                  ", ";
   std::cout << ")" << std::endl;
+  inc_indent();
   for(Stmt* stmt: node.stmts){
-    std::cout << "   ";
+    std::cout << get_indent();
     stmt->accept(*this);
   }
+  dec_indent();
   std::cout << std::endl << "end" << std::endl << std::endl;
 }
 
 void Printer::visit(TypeDecl& node){
-  std::cout << "type " << node.id.lexeme() << std::endl;
+  std::cout << get_indent() << "type " << node.id.lexeme() << std::endl;
   for(VarDeclStmt* vDecl: node.vdecls){
-    std::cout << "  ";
+    std::cout << get_indent() << "  ";
     vDecl->accept(*this);
   }
-  std::cout << std::endl << std::endl;
+  std::cout << get_indent() << std::endl << std::endl;
 }
 
 
@@ -117,25 +118,31 @@ void Printer::visit(IfStmt& node){
   std::cout << "if ";
   node.if_part->expr->accept(*this);
   std::cout << " then" << std::endl;
+  inc_indent();
   for(Stmt* s: node.if_part->stmts){
-    std::cout << "   ";
+    std::cout << get_indent();
     s->accept(*this);
   }
+  dec_indent();
   for(BasicIf* bIf: node.else_ifs){
     std::cout << std::endl << "elseif ";
     bIf->expr->accept(*this);
     std::cout << " then" << std::endl;
+    inc_indent();
     for(Stmt* s: bIf->stmts){
-      std::cout << "   ";
+      std::cout << get_indent();
       s->accept(*this);
     }
+    dec_indent();
   }
   if(node.body_stmts.size() > 0){
     std::cout << std::endl << "else" << std::endl;
+    inc_indent();
     for(Stmt* s: node.body_stmts){
-      std::cout << "   ";
+      std::cout << get_indent();
       s->accept(*this);
     }
+    dec_indent();
   }
   std::cout << std::endl << "end" << std::endl;
 }
@@ -144,10 +151,12 @@ void Printer::visit(WhileStmt& node){
   std::cout << "while ";
   node.expr->accept(*this);
   std::cout << " do" <<std::endl;
+  inc_indent();
   for(Stmt* s: node.stmts){
-    std::cout << "   ";
+    std::cout << get_indent();
     s->accept(*this);
   }
+  dec_indent();
   std::cout << "end" << std::endl;
 }
 
@@ -157,10 +166,12 @@ void Printer::visit(ForStmt& node){
   std::cout << " to ";
   node.end->accept(*this);
   std::cout << " do" <<std::endl;
+  inc_indent();
   for(Stmt* s: node.stmts){
-    std::cout << "   ";
+    std::cout << get_indent();
     s->accept(*this);
   }
+  dec_indent();
 }
 
 
