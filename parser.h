@@ -12,7 +12,6 @@
 #include "mypl_exception.h"
 #include "ast.h"
 
-
 class Parser
 {
 public:
@@ -21,7 +20,7 @@ public:
   Parser(const Lexer& program_lexer);
 
   // run the parser
-  void parse(Program& node);
+  void parse(Program& prog);
   
 private:
   Lexer lexer;
@@ -35,26 +34,26 @@ private:
   
   // recursive descent functions
   void tdecl(TypeDecl*& tDec);
-  void vdecls(VarDeclStmt*& vDecStmt);
+  void vdecls(std::list<VarDeclStmt*>& vdecs);
   void fdecl(FunDecl*& fDec);
-  void params(FunDecl*& fDec);
+  void params(std::list<FunDecl::FunParam>& ps);
   void dtype(Token& dType);
-  void stmts(std::list<Stmt*>& stamts);
-  void stmt(std::list<Stmt*>& stamts);
-  void vdecl_stmt(VarDeclStmt*& vDecStmt);
+  void stmts(std::list<Stmt*>& stms);
+  void stmt(std::list<Stmt*>& stms);
+  void vdecl_stmt(VarDeclStmt*& vDecl);
   void assign_stmt(AssignStmt*& aStmt);
-  void lvalue(std::list<Token>& id_list);
+  void lvalue(std::list<Token>& lvalue_list);
   void cond_stmt(IfStmt*& iStmt);
   void condt(IfStmt*& iStmt);
   void while_stmt(WhileStmt*& wStmt);
   void for_stmt(ForStmt*& fStmt);
   void call_expr(CallExpr*& cExpr);
-  void args(std::list<Expr*> arg_list);
+  void args(std::list<Expr*>& arg_list);
   void exit_stmt(ReturnStmt*& rStmt);
   void expr(Expr*& exp);
-  void op(Token& oper);
+  void op(Token*& op);
   void rvalue(RValue*& rVal);
-  void pval(Token& value);
+  void pval(Token& pVal);
   void idrval(IDRValue*& idrVal);
 };
 
@@ -101,17 +100,19 @@ bool Parser::is_operator(TokenType t)
 
 // Recursive-decent functions
 
-void Parser::parse(Program& node)
+void Parser::parse(Program& prog)
 {
   advance();
   while (curr_token.type() != EOS) {
     if (curr_token.type() == TYPE){
-      TypeDecl* tdec = new TypeDecl();
-      tdec->id = curr_token;
-      tdecl(tdec);
-    } else if(curr_token.type() == FUN){
-      FunDecl* fdec = new FunDecl();
-      fdecl(fdec);
+      TypeDecl* tDec = new TypeDecl();
+      tdecl(tDec);
+      prog.decls.push_back(tDec);
+    }
+    else if(curr_token.type() == FUN){
+      FunDecl* fDec = new FunDecl();
+      fdecl(fDec);
+      prog.decls.push_back(fDec);
     }
   }
   eat(EOS, "expecting end-of-file ");
@@ -121,175 +122,156 @@ void Parser::parse(Program& node)
 void Parser::tdecl(TypeDecl*& tDec)
 {
   advance();
+  tDec->id = curr_token;
+  eat(ID, "expecting variable ID ");
+  vdecls(tDec->vdecls);
+  eat(END, "expecting \'END\' keyword ");
+}
+
+void Parser::vdecls(std::list<VarDeclStmt*>& vdecs){
   while(curr_token.type() == VAR){
-    VarDeclStmt* vDecStmt = new VarDeclStmt();
-    *vDecStmt->type = tDec->id;
-    vdecls(vDecStmt);
-    tDec->vdecls.push_back(vDecStmt);
+    VarDeclStmt* vDecl = new VarDeclStmt();
+    vdecl_stmt(vDecl);
+    vdecs.push_back(vDecl);
   }
-  eat(END, "expecting 'END' keyword ");
 }
 
-void Parser::vdecls(VarDeclStmt*& vDecStmt){
-  vdecl_stmt(vDecStmt);
-}
-
-void Parser::fdecl(FunDecl*& fdec)
+void Parser::fdecl(FunDecl*& fDec)
 {
   advance();
   if(curr_token.type() == NIL){
-    fdec->return_type = curr_token;
+    fDec->return_type = curr_token;
     advance();
   }
-  else if(curr_token.type() == INT_TYPE ||
-  curr_token.type() == DOUBLE_TYPE ||
-  curr_token.type() == BOOL_TYPE ||
-  curr_token.type() == CHAR_TYPE ||
-  curr_token.type() == STRING_TYPE ||
-  curr_token.type() == ID){
-    dtype(fdec->return_type);
-  }
-  else error("invalid function declaration ");
-  if(curr_token.type() == ID){
-    fdec->id = curr_token;
-    advance();
-  }
-  else error("expecting variable ID ");
+  else dtype(fDec->return_type);
+  fDec->id = curr_token;
+  eat(ID, "expecting variable ID ");
   eat(LPAREN, "expecting '(' ");
-  params(fdec);
+  params(fDec->params);
   eat(RPAREN, "expecting ')' ");
-  stmts(fdec->stmts);
+  stmts(fDec->stmts);
   eat(END, "expecting 'END' keyword ");
 }
 
-void Parser::params(FunDecl*& fdecl){
+void Parser::params(std::list<FunDecl::FunParam>& ps){
   if(curr_token.type() == ID){
     FunDecl::FunParam p;
     p.id = curr_token;
     advance();
-    eat(COLON, "expecting \':\' ");
+    eat(COLON, "expecting ':' ");
     dtype(p.type);
-    fdecl->params.push_back(p);
     while(curr_token.type() == COMMA){
       advance();
-      if(curr_token.type() == ID){
-        p.id = curr_token;
-      }
-      else error("expecting id ");
-      eat(COLON, "expecting \':\' ");
-      dtype(p.type);
-      fdecl->params.push_back(p);
+      params(ps);
     }
   }
+  else if(curr_token.type() != RPAREN)
+    error("invalid parameter ");
 }
 
 void Parser::dtype(Token& dType){
   if(curr_token.type() == INT_TYPE ||
-    curr_token.type() == DOUBLE_TYPE ||
-    curr_token.type() == BOOL_TYPE ||
-    curr_token.type() == CHAR_TYPE ||
-    curr_token.type() == STRING_TYPE ||
-    curr_token.type() == ID){
+     curr_token.type() == DOUBLE_TYPE ||
+     curr_token.type() == BOOL_TYPE ||
+     curr_token.type() == CHAR_TYPE ||
+     curr_token.type() == STRING_TYPE ||
+     curr_token.type() == ID){
     dType = curr_token;
     advance();
-  }
+  } else error("invalid declared type ");
 }
 
-void Parser::stmts(std::list<Stmt*>& stamts){
+void Parser::stmts(std::list<Stmt*>& stms){
   if(curr_token.type() == VAR ||
   curr_token.type() == ID ||
   curr_token.type() == IF ||
   curr_token.type() == WHILE ||
   curr_token.type() == FOR ||
   curr_token.type() == RETURN){
-    stmt(stamts);
-    stmts(stamts);
+    stmt(stms);
+    stmts(stms);
   }
 }
 
-void Parser::stmt(std::list<Stmt*>& stamts){
+void Parser::stmt(std::list<Stmt*>& stms){
   if(curr_token.type() == VAR){
-    VarDeclStmt* vDecStmt = new VarDeclStmt();
-    vdecl_stmt(vDecStmt);
-    stamts.push_back(vDecStmt);
+    VarDeclStmt* vDecl =new VarDeclStmt();
+    vdecl_stmt(vDecl);
+    stms.push_back(vDecl);
   }
   else if(curr_token.type() == ID){
-    Token* id = new Token(curr_token.type(), curr_token.lexeme(), 
-                          curr_token.line(), curr_token.column());
+    Token id = curr_token;
     advance();
     if(curr_token.type() == LPAREN){
       CallExpr* cExpr = new CallExpr();
-      cExpr->function_id = *id;
+      cExpr->function_id = id;
       call_expr(cExpr);
-      stamts.push_back(cExpr);
+      stms.push_back(cExpr);
     }
-    else{
+    else if(curr_token.type() == ASSIGN ||
+            curr_token.type() == DOT){
       AssignStmt* aStmt = new AssignStmt();
-      aStmt->lvalue_list.push_back(*id);
+      aStmt->lvalue_list.push_back(id);
       assign_stmt(aStmt);
-      stamts.push_back(aStmt);
+      stms.push_back(aStmt);
     }
   }
   else if(curr_token.type() == IF){
     IfStmt* iStmt = new IfStmt();
     cond_stmt(iStmt);
-    stamts.push_back(iStmt);
+    stms.push_back(iStmt);
   }
   else if(curr_token.type() == WHILE){
     WhileStmt* wStmt = new WhileStmt();
     while_stmt(wStmt);
-    stamts.push_back(wStmt);
+    stms.push_back(wStmt);
   }
   else if(curr_token.type() == FOR){
     ForStmt* fStmt = new ForStmt();
     for_stmt(fStmt);
-    stamts.push_back(fStmt);
+    stms.push_back(fStmt);
   }
   else if(curr_token.type() == RETURN){
     ReturnStmt* rStmt = new ReturnStmt();
     exit_stmt(rStmt);
-    stamts.push_back(rStmt);
+    stms.push_back(rStmt);
   }
 }
 
-void Parser::vdecl_stmt(VarDeclStmt*& vDecStmt){
+void Parser::vdecl_stmt(VarDeclStmt*& vDecl){
   advance();
-  vDecStmt->id = curr_token;
+  vDecl->id = curr_token;
   eat(ID, "expecting id ");
   if(curr_token.type() == COLON){
     advance();
-    dtype(*vDecStmt->type);
+    dtype(*vDecl->type);
   }
   eat(ASSIGN, "expecting '=' ");
+  expr(vDecl->expr);
 }
 
 void Parser::assign_stmt(AssignStmt*& aStmt){
+  // already added first id to the list (have to look for a dot not an id)
   lvalue(aStmt->lvalue_list);
   eat(ASSIGN, "expecting '=' ");
   expr(aStmt->expr);
 }
 
-void Parser::lvalue(std::list<Token>& id_list){
-  if(curr_token.type() == ID){
-    id_list.push_back(curr_token);
-    advance();
-  }
-  else error("expecting id ");
+void Parser::lvalue(std::list<Token>& lvalue_list){
   while(curr_token.type() == DOT){
     advance();
-    if(curr_token.type() == ID){
-      id_list.push_back(curr_token);
-      advance();
-    }
-    else error("expecting id ");
+    lvalue_list.push_back(curr_token);
+    eat(ID, "expecting id ");
   }
 }
 
 void Parser::cond_stmt(IfStmt*& iStmt){
-  advance();;
-  expr(iStmt->if_part->expr);
+  advance();
+  BasicIf* ifPart = new BasicIf();
+  expr(ifPart->expr);
   eat(THEN, "expecting 'then' keyword ");
-  stmts(iStmt->if_part->stmts);
+  stmts(ifPart->stmts);
+  iStmt->if_part = ifPart;
   condt(iStmt);
   eat(END, "expecting 'end' keyword ");
 }
@@ -297,21 +279,21 @@ void Parser::cond_stmt(IfStmt*& iStmt){
 void Parser::condt(IfStmt*& iStmt){
   if(curr_token.type() == ELSEIF){
     advance();
-    BasicIf* else_if = new BasicIf();
-    expr(else_if->expr);
+    BasicIf* elseIf = new BasicIf();
+    expr(elseIf->expr);
     eat(THEN, "expecting 'then' keyword ");
-    stmts(else_if->stmts);
-    iStmt->else_ifs.push_back(else_if);
+    stmts(elseIf->stmts);
+    iStmt->else_ifs.push_back(elseIf);
     condt(iStmt);
   }
-  if(curr_token.type() == ELSE){
+  else if(curr_token.type() == ELSE){
     advance();
     stmts(iStmt->body_stmts);
   }
 }
 
 void Parser::while_stmt(WhileStmt*& wStmt){
-  eat(WHILE, "expecting 'while' keyword");
+  advance();
   expr(wStmt->expr);
   eat(DO, "expecting 'do' keyword ");
   stmts(wStmt->stmts);
@@ -319,12 +301,9 @@ void Parser::while_stmt(WhileStmt*& wStmt){
 }
 
 void Parser::for_stmt(ForStmt*& fStmt){
-  eat(FOR, "expecting 'for' keyword ");
-  if(curr_token.type() == ID){
-    fStmt->var_id = curr_token;
-    advance();
-  }
-  else error("expecting id ");
+  advance();
+  fStmt->var_id = curr_token;
+  eat(ID, "expecting id ");
   eat(ASSIGN, "expecting '=' ");
   expr(fStmt->start);
   eat(TO, "expecting 'to' keyword ");
@@ -340,7 +319,7 @@ void Parser::call_expr(CallExpr*& cExpr){
   eat(RPAREN, "expecting ')' ");
 }
 
-void Parser::args(std::list<Expr*> arg_list){
+void Parser::args(std::list<Expr*>& arg_list){
   if(curr_token.type() == NOT ||
   curr_token.type() == LPAREN ||
   curr_token.type() == NIL ||
@@ -352,13 +331,12 @@ void Parser::args(std::list<Expr*> arg_list){
   curr_token.type() == CHAR_VAL ||
   curr_token.type() == STRING_VAL ||
   curr_token.type() == ID){
-    Expr* exp = new Expr();
-    expr(exp);
-    arg_list.push_back(exp);
+    Expr* e = new Expr();
+    expr(e);
+    arg_list.push_back(e);
     while(curr_token.type() == COMMA){
       advance();
-      expr(exp);
-      arg_list.push_back(exp);
+      args(arg_list);
     }
   }
 }
@@ -383,53 +361,61 @@ void Parser::expr(Expr*& exp){
     exp->first = cTerm;
     eat(RPAREN, "expecting ')' ");
   }
-  else{
+  else {
     SimpleTerm* sTerm = new SimpleTerm();
     rvalue(sTerm->rvalue);
     exp->first = sTerm;
   }
   if(is_operator(curr_token.type())){
-    op(*exp->op);
+    op(exp->op);
     expr(exp->rest);
   }
 }
 
-void Parser::op(Token& oper){
+void Parser::op(Token*& op){
   if(is_operator(curr_token.type())){
-    oper = curr_token;
+    *op = curr_token;
     advance();
   }
+  else error("expecting operator ");
 }
 
 void Parser::rvalue(RValue*& rVal){
   if(curr_token.type() == INT_VAL || 
-  curr_token.type() == DOUBLE_VAL ||
-  curr_token.type() == BOOL_VAL ||
-  curr_token.type() == CHAR_VAL ||
-  curr_token.type() == STRING_VAL){
+    curr_token.type() == DOUBLE_VAL ||
+    curr_token.type() == BOOL_VAL ||
+    curr_token.type() == CHAR_VAL ||
+    curr_token.type() == STRING_VAL){
     SimpleRValue* sRVal = new SimpleRValue();
     pval(sRVal->value);
     rVal = sRVal;
   }
-  else if(curr_token.type() == NIL)
+  else if(curr_token.type() == NIL){
+    SimpleRValue* sRVal = new SimpleRValue();
+    sRVal->value = curr_token;
     advance();
+    rVal = sRVal;
+  }
   else if(curr_token.type() == NEW){
     advance();
-    eat(ID, "expecting id ");
+    NewRValue* nRVal = new NewRValue();
+    nRVal->type_id = curr_token;
+    eat(ID, "expecting type id ");
+    rVal = nRVal;
   }
   else if(curr_token.type() == ID){
-    Token* id = new Token(curr_token.type(), curr_token.lexeme(),
-                         curr_token.line(), curr_token.column());
+    Token id = curr_token;
     advance();
     if(curr_token.type() == LPAREN){
       CallExpr* cExpr = new CallExpr();
-      cExpr->function_id = *id;
+      cExpr->function_id = id;
       call_expr(cExpr);
       rVal = cExpr;
     }
-    else{
+    else {
       IDRValue* idrVal = new IDRValue();
       idrval(idrVal);
+      rVal = idrVal;
     }
   }
   else if(curr_token.type() == NEG){
@@ -440,13 +426,13 @@ void Parser::rvalue(RValue*& rVal){
   }  
 }
 
-void Parser::pval(Token& value){
+void Parser::pval(Token& pVal){
   if(curr_token.type() == INT_VAL || 
-  curr_token.type() == DOUBLE_VAL ||
-  curr_token.type() == BOOL_VAL ||
-  curr_token.type() == CHAR_VAL ||
-  curr_token.type() == STRING_VAL){
-    value = curr_token;
+    curr_token.type() == DOUBLE_VAL ||
+    curr_token.type() == BOOL_VAL ||
+    curr_token.type() == CHAR_VAL ||
+    curr_token.type() == STRING_VAL){
+    pVal = curr_token;
     advance();
   }
   else error("expecting value ");
@@ -455,11 +441,8 @@ void Parser::pval(Token& value){
 void Parser::idrval(IDRValue*& idrVal){
   while(curr_token.type() == DOT){
     advance();
-    if(curr_token.type() == ID){
-      idrVal->path.push_back(curr_token);
-      advance();
-    }
-    else error("expecting id ");
+    idrVal->path.push_back(curr_token);
+    eat(ID, "expecting id ");
   }
 }
 
