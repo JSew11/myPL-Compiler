@@ -33,28 +33,28 @@ private:
   bool is_operator(TokenType t);
   
   // recursive descent functions
-  void tdecl(TypeDecl*& tDec);
+  void tdecl(TypeDecl& tDec);
   void vdecls(std::list<VarDeclStmt*>& vdecs);
-  void fdecl(FunDecl*& fDec);
+  void fdecl(FunDecl& fDec);
   void params(std::list<FunDecl::FunParam>& ps);
   void dtype(Token& dType);
   void stmts(std::list<Stmt*>& stms);
   void stmt(std::list<Stmt*>& stms);
-  void vdecl_stmt(VarDeclStmt*& vDecl);
-  void assign_stmt(AssignStmt*& aStmt);
+  void vdecl_stmt(VarDeclStmt& vDecl);
+  void assign_stmt(AssignStmt& aStmt);
   void lvalue(std::list<Token>& lvalue_list);
-  void cond_stmt(IfStmt*& iStmt);
-  void condt(IfStmt*& iStmt);
-  void while_stmt(WhileStmt*& wStmt);
-  void for_stmt(ForStmt*& fStmt);
-  void call_expr(CallExpr*& cExpr);
+  void cond_stmt(IfStmt& iStmt);
+  void condt(IfStmt& iStmt);
+  void while_stmt(WhileStmt& wStmt);
+  void for_stmt(ForStmt& fStmt);
+  void call_expr(CallExpr& cExpr);
   void args(std::list<Expr*>& arg_list);
-  void exit_stmt(ReturnStmt*& rStmt);
-  void expr(Expr*& exp);
-  void op(Token*& op);
-  void rvalue(RValue*& rVal);
+  void exit_stmt(ReturnStmt& rStmt);
+  void expr(Expr& exp);
+  void op(Token& op);
+  void rvalue(RValue& rVal);
   void pval(Token& pVal);
-  void idrval(IDRValue*& idrVal);
+  void idrval(IDRValue& idrVal);
 };
 
 
@@ -110,12 +110,12 @@ void Parser::parse(Program& prog)
   while (curr_token.type() != EOS) {
     if (curr_token.type() == TYPE){
       TypeDecl* tDec = new TypeDecl();
-      tdecl(tDec);
+      tdecl(*tDec);
       prog.decls.push_back(tDec);
     }
     else if(curr_token.type() == FUN){
       FunDecl* fDec = new FunDecl();
-      fdecl(fDec);
+      fdecl(*fDec);
       prog.decls.push_back(fDec);
     }
   }
@@ -123,37 +123,37 @@ void Parser::parse(Program& prog)
 }
 
 
-void Parser::tdecl(TypeDecl*& tDec)
+void Parser::tdecl(TypeDecl& tDec)
 {
   advance();
-  tDec->id = curr_token;
+  tDec.id = curr_token;
   eat(ID, "expecting variable ID ");
-  vdecls(tDec->vdecls);
+  vdecls(tDec.vdecls);
   eat(END, "expecting \'END\' keyword ");
 }
 
 void Parser::vdecls(std::list<VarDeclStmt*>& vdecs){
   while(curr_token.type() == VAR){
     VarDeclStmt* vDecl = new VarDeclStmt();
-    vdecl_stmt(vDecl);
+    vdecl_stmt(*vDecl);
     vdecs.push_back(vDecl);
   }
 }
 
-void Parser::fdecl(FunDecl*& fDec)
+void Parser::fdecl(FunDecl& fDec)
 {
   advance();
   if(curr_token.type() == NIL){
-    fDec->return_type = curr_token;
+    fDec.return_type = curr_token;
     advance();
   }
-  else dtype(fDec->return_type);
-  fDec->id = curr_token;
+  else dtype(fDec.return_type);
+  fDec.id = curr_token;
   eat(ID, "expecting variable ID ");
   eat(LPAREN, "expecting '(' ");
-  params(fDec->params);
+  params(fDec.params);
   eat(RPAREN, "expecting ')' ");
-  stmts(fDec->stmts);
+  stmts(fDec.stmts);
   eat(END, "expecting 'END' keyword ");
 }
 
@@ -204,7 +204,7 @@ void Parser::stmts(std::list<Stmt*>& stms){
 void Parser::stmt(std::list<Stmt*>& stms){
   if(curr_token.type() == VAR){
     VarDeclStmt* vDecl =new VarDeclStmt();
-    vdecl_stmt(vDecl);
+    vdecl_stmt(*vDecl);
     stms.push_back(vDecl);
   }
   else if(curr_token.type() == ID){
@@ -213,59 +213,59 @@ void Parser::stmt(std::list<Stmt*>& stms){
     if(curr_token.type() == LPAREN){
       CallExpr* cExpr = new CallExpr();
       cExpr->function_id = id;
-      call_expr(cExpr);
+      call_expr(*cExpr);
       stms.push_back(cExpr);
     }
     else if(curr_token.type() == ASSIGN ||
             curr_token.type() == DOT){
       AssignStmt* aStmt = new AssignStmt();
       aStmt->lvalue_list.push_back(id);
-      assign_stmt(aStmt);
+      assign_stmt(*aStmt);
       stms.push_back(aStmt);
     }
   }
   else if(curr_token.type() == IF){
     IfStmt* iStmt = new IfStmt();
-    cond_stmt(iStmt);
+    cond_stmt(*iStmt);
     stms.push_back(iStmt);
   }
   else if(curr_token.type() == WHILE){
     WhileStmt* wStmt = new WhileStmt();
-    while_stmt(wStmt);
+    while_stmt(*wStmt);
     stms.push_back(wStmt);
   }
   else if(curr_token.type() == FOR){
     ForStmt* fStmt = new ForStmt();
-    for_stmt(fStmt);
+    for_stmt(*fStmt);
     stms.push_back(fStmt);
   }
   else if(curr_token.type() == RETURN){
     ReturnStmt* rStmt = new ReturnStmt();
-    exit_stmt(rStmt);
+    exit_stmt(*rStmt);
     stms.push_back(rStmt);
   }
 }
 
-void Parser::vdecl_stmt(VarDeclStmt*& vDecl){
+void Parser::vdecl_stmt(VarDeclStmt& vDecl){
   advance();
-  vDecl->id = curr_token;
+  vDecl.id = curr_token;
   eat(ID, "expecting id ");
   if(curr_token.type() == COLON){
     advance();
     Token vType;
     dtype(vType);
-    vDecl->type = new Token(vType.type(), vType.lexeme(),
+    vDecl.type = new Token(vType.type(), vType.lexeme(),
                             vType.line(), vType.column());
   }
   eat(ASSIGN, "expecting '=' ");
-  expr(vDecl->expr);
+  expr(*vDecl.expr);
 }
 
-void Parser::assign_stmt(AssignStmt*& aStmt){
+void Parser::assign_stmt(AssignStmt& aStmt){
   // already added first id to the list (have to look for a dot not an id)
-  lvalue(aStmt->lvalue_list);
+  lvalue(aStmt.lvalue_list);
   eat(ASSIGN, "expecting '=' ");
-  expr(aStmt->expr);
+  expr(*aStmt.expr);
 }
 
 void Parser::lvalue(std::list<Token>& lvalue_list){
@@ -276,57 +276,57 @@ void Parser::lvalue(std::list<Token>& lvalue_list){
   }
 }
 
-void Parser::cond_stmt(IfStmt*& iStmt){
+void Parser::cond_stmt(IfStmt& iStmt){
   advance();
   BasicIf* ifPart = new BasicIf();
-  expr(ifPart->expr);
+  expr(*ifPart->expr);
   eat(THEN, "expecting 'then' keyword ");
   stmts(ifPart->stmts);
-  iStmt->if_part = ifPart;
+  iStmt.if_part = ifPart;
   condt(iStmt);
   eat(END, "expecting 'end' keyword ");
 }
 
-void Parser::condt(IfStmt*& iStmt){
+void Parser::condt(IfStmt& iStmt){
   if(curr_token.type() == ELSEIF){
     advance();
     BasicIf* elseIf = new BasicIf();
-    expr(elseIf->expr);
+    expr(*elseIf->expr);
     eat(THEN, "expecting 'then' keyword ");
     stmts(elseIf->stmts);
-    iStmt->else_ifs.push_back(elseIf);
+    iStmt.else_ifs.push_back(elseIf);
     condt(iStmt);
   }
   else if(curr_token.type() == ELSE){
     advance();
-    stmts(iStmt->body_stmts);
+    stmts(iStmt.body_stmts);
   }
 }
 
-void Parser::while_stmt(WhileStmt*& wStmt){
+void Parser::while_stmt(WhileStmt& wStmt){
   advance();
-  expr(wStmt->expr);
+  expr(*wStmt.expr);
   eat(DO, "expecting 'do' keyword ");
-  stmts(wStmt->stmts);
+  stmts(wStmt.stmts);
   eat(END, "expecting 'end' keyword ");
 }
 
-void Parser::for_stmt(ForStmt*& fStmt){
+void Parser::for_stmt(ForStmt& fStmt){
   advance();
-  fStmt->var_id = curr_token;
+  fStmt.var_id = curr_token;
   eat(ID, "expecting id ");
   eat(ASSIGN, "expecting '=' ");
-  expr(fStmt->start);
+  expr(*fStmt.start);
   eat(TO, "expecting 'to' keyword ");
-  expr(fStmt->end); 
+  expr(*fStmt.end); 
   eat(DO, "expecting 'do' keyword ");
-  stmts(fStmt->stmts);
+  stmts(fStmt.stmts);
   eat(END, "expecting 'end' keyword");
 }
 
-void Parser::call_expr(CallExpr*& cExpr){
+void Parser::call_expr(CallExpr& cExpr){
   eat(LPAREN, "expecting '(' ");
-  args(cExpr->arg_list);
+  args(cExpr.arg_list);
   eat(RPAREN, "expecting ')' ");
 }
 
@@ -343,7 +343,7 @@ void Parser::args(std::list<Expr*>& arg_list){
   curr_token.type() == STRING_VAL ||
   curr_token.type() == ID){
     Expr* e = new Expr();
-    expr(e);
+    expr(*e);
     arg_list.push_back(e);
     while(curr_token.type() == COMMA){
       advance();
@@ -352,9 +352,9 @@ void Parser::args(std::list<Expr*>& arg_list){
   }
 }
 
-void Parser::exit_stmt(ReturnStmt*& rStmt){
+void Parser::exit_stmt(ReturnStmt& rStmt){
   advance();
-  expr(rStmt->expr);
+  expr(*rStmt.expr);
 }
 
 //----------------------------------------------------------------------
@@ -362,34 +362,36 @@ void Parser::exit_stmt(ReturnStmt*& rStmt){
 //----------------------------------------------------------------------
 
 
-void Parser::expr(Expr*& exp){
+void Parser::expr(Expr& exp){
   if(curr_token.type() == NOT){
-    exp->negated = true;
+    exp.negated = true;
     advance();
     ComplexTerm* cTerm = new ComplexTerm();
-    expr(cTerm->expr);
-    exp->first = cTerm;
+    expr(*cTerm->expr);
+    exp.first = cTerm;
   }
   else if(curr_token.type() == LPAREN){
     advance();
     ComplexTerm* cTerm = new ComplexTerm();
-    expr(cTerm->expr);
-    exp->first = cTerm;
+    expr(*cTerm->expr);
+    exp.first = cTerm;
     eat(RPAREN, "expecting ')' ");
   }
   else{
     SimpleTerm* sTerm = new SimpleTerm();
-    rvalue(sTerm->rvalue);
-    exp->first = sTerm;
+    rvalue(*sTerm->rvalue);
+    exp.first = sTerm;
   }
   if(is_operator(curr_token.type())){
-    op(exp->op);
-    expr(exp->rest);
+    op(*exp.op);
+    ComplexTerm* cTerm = new ComplexTerm();
+    expr(*cTerm->expr);
+    exp.rest = cTerm->expr;
   }
 }
 
-void Parser::op(Token*& op){
-  *op = curr_token;
+void Parser::op(Token& op){
+  op = curr_token;
   advance();
 }
 
@@ -397,19 +399,19 @@ void Parser::op(Token*& op){
 // RValues
 //----------------------------------------------------------------------
 
-void Parser::rvalue(RValue*& rVal){
+void Parser::rvalue(RValue& rVal){
   if(curr_token.type() == NIL){
     SimpleRValue* sRVal = new SimpleRValue();
     sRVal->value = curr_token;
     advance();
-    rVal = sRVal;
+    rVal = *sRVal;
   }
   else if(curr_token.type() == NEW){
     advance();
     NewRValue* nRVal = new NewRValue();
     nRVal->type_id = curr_token;
     eat(ID, "expecting type id ");
-    rVal = nRVal;
+    rVal = *nRVal;
   }
   else if(curr_token.type() == ID){
     Token id = curr_token;
@@ -417,25 +419,25 @@ void Parser::rvalue(RValue*& rVal){
     if(curr_token.type() == LPAREN){
       CallExpr* cExpr = new CallExpr();
       cExpr->function_id = id;
-      call_expr(cExpr);
-      rVal = cExpr;
+      call_expr(*cExpr);
+      rVal = *cExpr;
     }
     else {
       IDRValue* idrVal = new IDRValue();
-      idrval(idrVal);
-      rVal = idrVal;
+      idrval(*idrVal);
+      rVal = *idrVal;
     }
   }
   else if(curr_token.type() == NEG){
     advance();
     NegatedRValue* nRVal = new NegatedRValue();
-    expr(nRVal->expr);
-    rVal = nRVal;
+    expr(*nRVal->expr);
+    rVal = *nRVal;
   }
   else{
     SimpleRValue* sRVal = new SimpleRValue();
     pval(sRVal->value);
-    rVal = sRVal;
+    rVal = *sRVal;
   }
 }
 
@@ -451,10 +453,10 @@ void Parser::pval(Token& pVal){
   else error("expecting value ");
 }
 
-void Parser::idrval(IDRValue*& idrVal){
+void Parser::idrval(IDRValue& idrVal){
   while(curr_token.type() == DOT){
     advance();
-    idrVal->path.push_back(curr_token);
+    idrVal.path.push_back(curr_token);
     eat(ID, "expecting id ");
   }
 }
