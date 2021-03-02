@@ -100,6 +100,10 @@ bool Parser::is_operator(TokenType t)
 
 // Recursive-decent functions
 
+//----------------------------------------------------------------------
+// Function, Variable, and Type Declarations
+//----------------------------------------------------------------------
+
 void Parser::parse(Program& prog)
 {
   advance();
@@ -181,6 +185,10 @@ void Parser::dtype(Token& dType){
   } else error("invalid declared type ");
 }
 
+//----------------------------------------------------------------------
+// Statements
+//----------------------------------------------------------------------
+
 void Parser::stmts(std::list<Stmt*>& stms){
   if(curr_token.type() == VAR ||
   curr_token.type() == ID ||
@@ -244,7 +252,10 @@ void Parser::vdecl_stmt(VarDeclStmt*& vDecl){
   eat(ID, "expecting id ");
   if(curr_token.type() == COLON){
     advance();
-    dtype(*vDecl->type);
+    Token vType;
+    dtype(vType);
+    vDecl->type = new Token(vType.type(), vType.lexeme(),
+                            vType.line(), vType.column());
   }
   eat(ASSIGN, "expecting '=' ");
   expr(vDecl->expr);
@@ -346,6 +357,11 @@ void Parser::exit_stmt(ReturnStmt*& rStmt){
   expr(rStmt->expr);
 }
 
+//----------------------------------------------------------------------
+// Expression
+//----------------------------------------------------------------------
+
+
 void Parser::expr(Expr*& exp){
   if(curr_token.type() == NOT){
     exp->negated = true;
@@ -361,7 +377,7 @@ void Parser::expr(Expr*& exp){
     exp->first = cTerm;
     eat(RPAREN, "expecting ')' ");
   }
-  else {
+  else{
     SimpleTerm* sTerm = new SimpleTerm();
     rvalue(sTerm->rvalue);
     exp->first = sTerm;
@@ -373,24 +389,16 @@ void Parser::expr(Expr*& exp){
 }
 
 void Parser::op(Token*& op){
-  if(is_operator(curr_token.type())){
-    *op = curr_token;
-    advance();
-  }
-  else error("expecting operator ");
+  *op = curr_token;
+  advance();
 }
 
+//----------------------------------------------------------------------
+// RValues
+//----------------------------------------------------------------------
+
 void Parser::rvalue(RValue*& rVal){
-  if(curr_token.type() == INT_VAL || 
-    curr_token.type() == DOUBLE_VAL ||
-    curr_token.type() == BOOL_VAL ||
-    curr_token.type() == CHAR_VAL ||
-    curr_token.type() == STRING_VAL){
-    SimpleRValue* sRVal = new SimpleRValue();
-    pval(sRVal->value);
-    rVal = sRVal;
-  }
-  else if(curr_token.type() == NIL){
+  if(curr_token.type() == NIL){
     SimpleRValue* sRVal = new SimpleRValue();
     sRVal->value = curr_token;
     advance();
@@ -423,7 +431,12 @@ void Parser::rvalue(RValue*& rVal){
     NegatedRValue* nRVal = new NegatedRValue();
     expr(nRVal->expr);
     rVal = nRVal;
-  }  
+  }
+  else{
+    SimpleRValue* sRVal = new SimpleRValue();
+    pval(sRVal->value);
+    rVal = sRVal;
+  }
 }
 
 void Parser::pval(Token& pVal){
