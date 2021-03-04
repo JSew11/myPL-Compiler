@@ -238,13 +238,13 @@ Token Lexer::next_token()
       lexeme += read();
     }
     if(peek() == '.'){
+      if(lexeme.at(0) == '.') 
+        error("invalid double value, no leading number prior to '.'", line, column);
       lexeme += read();
       while(!std::isspace(peek()) && std::isdigit(peek())){
         lexeme += read();
       }
-      if(!std::isdigit(peek()) && !std::isspace(peek()))
-        error("Invalid double value", line, column);
-      else return Token(DOUBLE_VAL, lexeme, line, column-lexeme.size());
+      return Token(DOUBLE_VAL, lexeme, line, column-lexeme.size());
     }
     else if(!std::isalpha(peek())){
       return Token(INT_VAL, lexeme, line, column-lexeme.size());

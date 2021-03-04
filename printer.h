@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------
-// NAME:
-// FILE:
-// DATE:
-// DESC:
+// NAME: Joshua Seward
+// FILE: printer.h
+// DATE: 2/27/2021
+// DESC: Visitor functions for the ast.h file that "pretty print" the 
+//       code being analyzed
 //----------------------------------------------------------------------
-
 
 #ifndef PRINTER_H
 #define PRINTER_H
@@ -65,9 +65,13 @@ void Printer::visit(Program& node){
 void Printer::visit(FunDecl& node){
   std::cout << get_indent() << "fun " << node.return_type.lexeme() << " " <<
                node.id.lexeme() << "(";
-  for(FunDecl::FunParam param: node.params)
-    std::cout << param.id.lexeme() << ": " << param.type.lexeme() <<
+  for(FunDecl::FunParam param: node.params){
+    if(param.id.lexeme() == node.params.back().id.lexeme())
+      std::cout << param.id.lexeme() << ": " << param.type.lexeme();
+    else
+      std::cout << param.id.lexeme() << ": " << param.type.lexeme() <<
                  ", ";
+  }
   std::cout << ")" << std::endl;
   inc_indent();
   for(Stmt* stmt: node.stmts){
@@ -75,7 +79,7 @@ void Printer::visit(FunDecl& node){
     stmt->accept(*this);
   }
   dec_indent();
-  std::cout << std::endl << "end" << std::endl << std::endl;
+  std::cout << "end" << std::endl << std::endl;
 }
 
 void Printer::visit(TypeDecl& node){
@@ -84,7 +88,7 @@ void Printer::visit(TypeDecl& node){
     std::cout << get_indent() << "  ";
     vDecl->accept(*this);
   }
-  std::cout << get_indent() << std::endl << std::endl;
+  std::cout << get_indent() << "end" << std::endl << std::endl;
 }
 
 
@@ -94,16 +98,21 @@ void Printer::visit(TypeDecl& node){
 
 
 void Printer::visit(VarDeclStmt& node){
-  std::cout << "var" << node.id.lexeme();
+  std::cout << "var " << node.id.lexeme();
   if(node.type)
     std::cout << ": " << node.type->lexeme();
   std::cout << " = ";
   node.expr->accept(*this);
+  std::cout << std::endl;
 }
 
 void Printer::visit(AssignStmt& node){
-  for(Token lVal: node.lvalue_list)
-    std::cout << lVal.lexeme() << " = ";
+  for(Token lVal: node.lvalue_list){
+    std::cout << lVal.lexeme();
+    if(lVal.lexeme() == node.lvalue_list.back().lexeme())
+      std::cout << " = ";
+    else std::cout << ".";
+  }
   node.expr->accept(*this); 
   std::cout << std::endl; 
 }
@@ -204,11 +213,15 @@ void Printer::visit(ComplexTerm& node){
 
 
 void Printer::visit(SimpleRValue& node){
-  std::cout << node.value.lexeme();
+  if(node.value.type() == STRING_VAL)
+    std::cout << "\"" << node.value.lexeme() << "\"";
+  else if(node.value.type() == CHAR_VAL)
+    std::cout << "'" << node.value.lexeme() << "'";
+  else std::cout << node.value.lexeme();
 }
 
 void Printer::visit(NewRValue& node){
-  std::cout << "new " << node.type_id.lexeme() << std::endl;
+  std::cout << "new " << node.type_id.lexeme();
 }
 
 void Printer::visit(CallExpr& node){
@@ -231,7 +244,9 @@ void Printer::visit(CallExpr& node){
 
 void Printer::visit(IDRValue& node){
   for(Token t: node.path){
-    std::cout << t.lexeme();
+    if(t.lexeme() == node.path.back().lexeme())
+      std::cout << t.lexeme();
+    else std::cout << t.lexeme() << ".";
   }
 }
 

@@ -36,7 +36,7 @@ private:
   void tdecl(TypeDecl& tDec);
   void vdecls(std::list<VarDeclStmt*>& vdecs);
   void fdecl(FunDecl& fDec);
-  void params(std::list<FunDecl::FunParam>& ps);
+  void params(FunDecl& fDec);
   void dtype(Token& dType);
   void stmts(std::list<Stmt*>& stms);
   void stmt(std::list<Stmt*>& stms);
@@ -52,7 +52,7 @@ private:
   void exit_stmt(ReturnStmt& rStmt);
   void expr(Expr& exp);
   void op(Token& op);
-  void rvalue(RValue& rVal);
+  void rvalue(SimpleTerm& sTerm);
   void pval(Token& pVal);
   void idrval(IDRValue& idrVal);
 };
@@ -151,22 +151,23 @@ void Parser::fdecl(FunDecl& fDec)
   fDec.id = curr_token;
   eat(ID, "expecting variable ID ");
   eat(LPAREN, "expecting '(' ");
-  params(fDec.params);
+  params(fDec);
   eat(RPAREN, "expecting ')' ");
   stmts(fDec.stmts);
   eat(END, "expecting 'END' keyword ");
 }
 
-void Parser::params(std::list<FunDecl::FunParam>& ps){
+void Parser::params(FunDecl& fDec){
   if(curr_token.type() == ID){
     FunDecl::FunParam p;
     p.id = curr_token;
     advance();
     eat(COLON, "expecting ':' ");
     dtype(p.type);
+    fDec.params.push_back(p);
     while(curr_token.type() == COMMA){
       advance();
-      params(ps);
+      params(fDec);
     }
   }
   else if(curr_token.type() != RPAREN)
@@ -258,6 +259,7 @@ void Parser::vdecl_stmt(VarDeclStmt& vDecl){
                             vType.line(), vType.column());
   }
   eat(ASSIGN, "expecting '=' ");
+  vDecl.expr = new Expr;
   expr(*vDecl.expr);
 }
 
@@ -265,6 +267,7 @@ void Parser::assign_stmt(AssignStmt& aStmt){
   // already added first id to the list (have to look for a dot not an id)
   lvalue(aStmt.lvalue_list);
   eat(ASSIGN, "expecting '=' ");
+  aStmt.expr = new Expr;
   expr(*aStmt.expr);
 }
 
@@ -279,6 +282,7 @@ void Parser::lvalue(std::list<Token>& lvalue_list){
 void Parser::cond_stmt(IfStmt& iStmt){
   advance();
   BasicIf* ifPart = new BasicIf();
+  ifPart->expr = new Expr;
   expr(*ifPart->expr);
   eat(THEN, "expecting 'then' keyword ");
   stmts(ifPart->stmts);
@@ -291,6 +295,7 @@ void Parser::condt(IfStmt& iStmt){
   if(curr_token.type() == ELSEIF){
     advance();
     BasicIf* elseIf = new BasicIf();
+    elseIf->expr = new Expr;
     expr(*elseIf->expr);
     eat(THEN, "expecting 'then' keyword ");
     stmts(elseIf->stmts);
@@ -305,6 +310,7 @@ void Parser::condt(IfStmt& iStmt){
 
 void Parser::while_stmt(WhileStmt& wStmt){
   advance();
+  wStmt.expr = new Expr;
   expr(*wStmt.expr);
   eat(DO, "expecting 'do' keyword ");
   stmts(wStmt.stmts);
@@ -316,8 +322,10 @@ void Parser::for_stmt(ForStmt& fStmt){
   fStmt.var_id = curr_token;
   eat(ID, "expecting id ");
   eat(ASSIGN, "expecting '=' ");
+  fStmt.start = new Expr;
   expr(*fStmt.start);
   eat(TO, "expecting 'to' keyword ");
+  fStmt.end = new Expr;
   expr(*fStmt.end); 
   eat(DO, "expecting 'do' keyword ");
   stmts(fStmt.stmts);
@@ -354,6 +362,7 @@ void Parser::args(std::list<Expr*>& arg_list){
 
 void Parser::exit_stmt(ReturnStmt& rStmt){
   advance();
+  rStmt.expr = new Expr;
   expr(*rStmt.expr);
 }
 
@@ -367,26 +376,28 @@ void Parser::expr(Expr& exp){
     exp.negated = true;
     advance();
     ComplexTerm* cTerm = new ComplexTerm();
+    cTerm->expr = new Expr;
     expr(*cTerm->expr);
     exp.first = cTerm;
   }
   else if(curr_token.type() == LPAREN){
     advance();
     ComplexTerm* cTerm = new ComplexTerm();
+    cTerm->expr = new Expr;
     expr(*cTerm->expr);
     exp.first = cTerm;
     eat(RPAREN, "expecting ')' ");
   }
   else{
     SimpleTerm* sTerm = new SimpleTerm();
-    rvalue(*sTerm->rvalue);
+    rvalue(*sTerm);
     exp.first = sTerm;
   }
   if(is_operator(curr_token.type())){
+    exp.op = new Token;
     op(*exp.op);
-    ComplexTerm* cTerm = new ComplexTerm();
-    expr(*cTerm->expr);
-    exp.rest = cTerm->expr;
+    exp.rest = new Expr;
+    expr(*exp.rest);
   }
 }
 
@@ -399,19 +410,19 @@ void Parser::op(Token& op){
 // RValues
 //----------------------------------------------------------------------
 
-void Parser::rvalue(RValue& rVal){
+void Parser::rvalue(SimpleTerm& sTerm){
   if(curr_token.type() == NIL){
     SimpleRValue* sRVal = new SimpleRValue();
     sRVal->value = curr_token;
     advance();
-    rVal = *sRVal;
+    sTerm.rvalue = sRVal;
   }
   else if(curr_token.type() == NEW){
     advance();
     NewRValue* nRVal = new NewRValue();
     nRVal->type_id = curr_token;
     eat(ID, "expecting type id ");
-    rVal = *nRVal;
+    sTerm.rvalue = nRVal;
   }
   else if(curr_token.type() == ID){
     Token id = curr_token;
@@ -420,24 +431,25 @@ void Parser::rvalue(RValue& rVal){
       CallExpr* cExpr = new CallExpr();
       cExpr->function_id = id;
       call_expr(*cExpr);
-      rVal = *cExpr;
+      sTerm.rvalue = cExpr;
     }
     else {
       IDRValue* idrVal = new IDRValue();
       idrval(*idrVal);
-      rVal = *idrVal;
+      sTerm.rvalue = idrVal;
     }
   }
   else if(curr_token.type() == NEG){
     advance();
     NegatedRValue* nRVal = new NegatedRValue();
+    nRVal->expr = new Expr;
     expr(*nRVal->expr);
-    rVal = *nRVal;
+    sTerm.rvalue = nRVal;
   }
   else{
     SimpleRValue* sRVal = new SimpleRValue();
     pval(sRVal->value);
-    rVal = *sRVal;
+    sTerm.rvalue = sRVal;
   }
 }
 
