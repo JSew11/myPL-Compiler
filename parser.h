@@ -435,6 +435,7 @@ void Parser::rvalue(SimpleTerm& sTerm){
     }
     else {
       IDRValue* idrVal = new IDRValue();
+      idrVal->path.push_back(id);
       idrval(*idrVal);
       sTerm.rvalue = idrVal;
     }

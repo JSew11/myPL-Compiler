@@ -63,8 +63,10 @@ void Printer::visit(Program& node){
 }
 
 void Printer::visit(FunDecl& node){
-  std::cout << get_indent() << "fun " << node.return_type.lexeme() << " " <<
+  // print out function header
+  std::cout << std::endl << get_indent() << "fun " << node.return_type.lexeme() << " " <<
                node.id.lexeme() << "(";
+  // print out parameters
   for(FunDecl::FunParam param: node.params){
     if(param.id.lexeme() == node.params.back().id.lexeme())
       std::cout << param.id.lexeme() << ": " << param.type.lexeme();
@@ -73,22 +75,29 @@ void Printer::visit(FunDecl& node){
                  ", ";
   }
   std::cout << ")" << std::endl;
+  // print out function body
   inc_indent();
   for(Stmt* stmt: node.stmts){
     std::cout << get_indent();
     stmt->accept(*this);
+    std::cout << std::endl;
   }
+  // print out end keyword
   dec_indent();
-  std::cout << "end" << std::endl << std::endl;
+  std::cout << get_indent() << "end" << std::endl;
 }
 
 void Printer::visit(TypeDecl& node){
-  std::cout << get_indent() << "type " << node.id.lexeme() << std::endl;
+  // print out type header
+  std::cout << std::endl << get_indent() << "type " << node.id.lexeme() << std::endl;
+  // print out type body
   for(VarDeclStmt* vDecl: node.vdecls){
-    std::cout << get_indent() << "  ";
+    std::cout << "  " << get_indent();
     vDecl->accept(*this);
+    std::cout << std::endl;
   }
-  std::cout << get_indent() << "end" << std::endl << std::endl;
+  // print out end keyword
+  std::cout << get_indent() << "end" << std::endl;
 }
 
 
@@ -98,89 +107,107 @@ void Printer::visit(TypeDecl& node){
 
 
 void Printer::visit(VarDeclStmt& node){
+  // print out lhs
   std::cout << "var " << node.id.lexeme();
+  // print out type (if necessary)
   if(node.type)
     std::cout << ": " << node.type->lexeme();
+  // print out assignment op and rhs
   std::cout << " = ";
   node.expr->accept(*this);
-  std::cout << std::endl;
 }
 
 void Printer::visit(AssignStmt& node){
-  for(Token lVal: node.lvalue_list){
-    std::cout << lVal.lexeme();
-    if(lVal.lexeme() == node.lvalue_list.back().lexeme())
-      std::cout << " = ";
-    else std::cout << ".";
+  // print out lhs path
+  auto lhs = node.lvalue_list.begin();
+  for(int i = 0; i < node.lvalue_list.size()-1; ++i){
+    std::advance(lhs, i);
+    Token t = *lhs;
+    std::cout << t.lexeme() << ".";
   }
+  // print out assignment operator and rhs expression
+  std::cout << node.lvalue_list.back().lexeme() << " = ";
   node.expr->accept(*this); 
-  std::cout << std::endl; 
 }
 
 void Printer::visit(ReturnStmt& node){
+  // print out return statement
   std::cout << "return ";
   node.expr->accept(*this);
-  std::cout << std::endl;
 }
 
 void Printer::visit(IfStmt& node){
+  // print out if statement header
   std::cout << "if ";
   node.if_part->expr->accept(*this);
   std::cout << " then" << std::endl;
+  // print out if statement body
   inc_indent();
   for(Stmt* s: node.if_part->stmts){
     std::cout << get_indent();
     s->accept(*this);
+    std::cout << std::endl;
   }
   dec_indent();
+  // print out elseif statements (if there are any)
   for(BasicIf* bIf: node.else_ifs){
-    std::cout << std::endl << "elseif ";
+    std::cout << get_indent() << "elseif ";
     bIf->expr->accept(*this);
     std::cout << " then" << std::endl;
     inc_indent();
     for(Stmt* s: bIf->stmts){
       std::cout << get_indent();
       s->accept(*this);
+      std::cout << std::endl;
     }
     dec_indent();
   }
+  // print out else statement (if it exists)
   if(node.body_stmts.size() > 0){
-    std::cout << std::endl << "else" << std::endl;
+    std::cout << get_indent() << "else" << std::endl;
     inc_indent();
     for(Stmt* s: node.body_stmts){
       std::cout << get_indent();
       s->accept(*this);
+      std::cout << std::endl;
     }
     dec_indent();
   }
-  std::cout << std::endl << "end" << std::endl;
+  std::cout << get_indent() << "end";
 }
 
 void Printer::visit(WhileStmt& node){
+  // print out while statement header
   std::cout << "while ";
   node.expr->accept(*this);
-  std::cout << " do" <<std::endl;
+  std::cout << " do " << std::endl;
+  // print out while statement body
   inc_indent();
   for(Stmt* s: node.stmts){
     std::cout << get_indent();
     s->accept(*this);
+    std::cout << std::endl;
   }
   dec_indent();
-  std::cout << "end" << std::endl;
+  std::cout << get_indent() << "end";
 }
 
 void Printer::visit(ForStmt& node){
+  // print out for statement header
   std::cout << "for " << node.var_id.lexeme() << "=";
   node.start->accept(*this);
   std::cout << " to ";
   node.end->accept(*this);
-  std::cout << " do" <<std::endl;
+  std::cout << " do " <<std::endl;
+  // print out for statement body
   inc_indent();
   for(Stmt* s: node.stmts){
     std::cout << get_indent();
     s->accept(*this);
+    std::cout << std::endl;
   }
   dec_indent();
+  std::cout << get_indent() << "end";
 }
 
 
@@ -190,12 +217,17 @@ void Printer::visit(ForStmt& node){
 
 
 void Printer::visit(Expr& node){
-  if(node.negated) std::cout << "not ";
-  node.first->accept(*this);
+  // print out expression
+  if(node.negated){
+    std::cout << "not ";
+    node.first->accept(*this);
+  }
   if(node.op) {
-    std::cout << node.op->lexeme();
+    node.first->accept(*this);
+    std::cout << " " << node.op->lexeme() << " ";
     node.rest->accept(*this);
   }
+  else node.first->accept(*this);
 }
 
 void Printer::visit(SimpleTerm& node){
@@ -225,7 +257,9 @@ void Printer::visit(NewRValue& node){
 }
 
 void Printer::visit(CallExpr& node){
+  // print out the function id
   std::cout << node.function_id.lexeme() << "(";
+  // print out the arguments being passed into the function
   if(node.arg_list.size() > 0){
     for(int i = 0; i < node.arg_list.size()-1; ++i){
       auto it = node.arg_list.begin();
@@ -243,17 +277,18 @@ void Printer::visit(CallExpr& node){
 }
 
 void Printer::visit(IDRValue& node){
-  for(Token t: node.path){
-    if(t.lexeme() == node.path.back().lexeme())
-      std::cout << t.lexeme();
-    else std::cout << t.lexeme() << ".";
+  auto id = node.path.begin();
+  for(int i = 0; i < node.path.size()-1; ++i){
+    std::advance(id, i);
+    Token t = *id;
+    std::cout << t.lexeme() << ".";
   }
+  std::cout << node.path.back().lexeme();
 }
 
 void Printer::visit(NegatedRValue& node){
   std::cout << "not ";
   node.expr->accept(*this);
-  std::cout << std::endl;
 }
 
 
