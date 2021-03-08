@@ -235,7 +235,9 @@ void Printer::visit(SimpleTerm& node){
 }
 
 void Printer::visit(ComplexTerm& node){
+  std::cout << "(";
   node.expr->accept(*this);
+  std::cout << ")";
 }
 
 
